@@ -1,0 +1,291 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- VARIABLES
+local espEnabled = true
+local rainbowESP = false
+local aimbotEnabled = true
+local fovRadius = 120
+local lineOrigin = "Bottom"  -- "Top", "Middle", or "Bottom"
+local aimbotBone = "Head"
+
+-- ESP SETTINGS
+local espEnabled = true
+local rainbowESP = false
+local lineOrigin = "Bottom" -- "Top", "Middle", or "Bottom"
+
+local function getLineOrigin()
+    local vs = Camera.ViewportSize
+    if lineOrigin == "Top" then
+        return Vector2.new(vs.X / 2, 0)
+    elseif lineOrigin == "Middle" then
+        return Vector2.new(vs.X / 2, vs.Y / 2)
+    else -- Bottom
+        return Vector2.new(vs.X / 2, vs.Y)
+    end
+end
+
+-- TRACKED ESP OBJECTS
+local espObjects = {}
+
+local function clearESP(player)
+    local obj = espObjects[player]
+    if obj then
+        for _, item in pairs(obj) do
+            if typeof(item) == "Instance" then
+                item:Destroy()
+            elseif typeof(item) == "table" and item.Remove then
+                item:Remove()
+            elseif typeof(item) == "table" and item.Destroy then
+                item:Destroy()
+            else
+                item.Visible = false
+            end
+        end
+    end
+    espObjects[player] = nil
+end
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    if espObjects[player] then return end
+
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Thickness = 1
+    box.Filled = false
+
+    local name = Drawing.new("Text")
+    name.Size = 14
+    name.Center = true
+    name.Outline = true
+    name.Visible = false
+
+    local line = Drawing.new("Line")
+    line.Thickness = 1
+    line.Visible = false
+
+    espObjects[player] = {Box = box, Name = name, Line = line}
+
+    RunService.RenderStepped:Connect(function()
+        if not player or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not espEnabled then
+            box.Visible = false
+            name.Visible = false
+            line.Visible = false
+            return
+        end
+
+        local hrp = player.Character.HumanoidRootPart
+        local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+        if not onScreen then
+            box.Visible = false
+            name.Visible = false
+            line.Visible = false
+            return
+        end
+
+        local width, height = 50, 100
+        box.Size = Vector2.new(width, height)
+        box.Position = Vector2.new(pos.X - width/2, pos.Y - height/2)
+        name.Position = Vector2.new(pos.X, pos.Y - height/2 - 14)
+        name.Text = player.Name
+        line.From = getLineOrigin()
+        line.To = Vector2.new(pos.X, pos.Y)
+
+        local color = rainbowESP and Color3.fromHSV(tick()%5/5,1,1) or Color3.new(1, 0, 0)
+        box.Color = color
+        name.Color = Color3.new(1, 1, 1)
+        line.Color = Color3.fromRGB(0, 255, 0)
+
+        box.Visible = true
+        name.Visible = true
+        line.Visible = true
+    end)
+end
+
+-- Refresh ESP on all players
+for _, plr in ipairs(Players:GetPlayers()) do createESP(plr) end
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function()
+        task.wait(1)
+        createESP(p)
+    end)
+end)
+Players.PlayerRemoving:Connect(function(p)
+    clearESP(p)
+end)
+
+-- GUI FIXED MENU WITH TOGGLE
+local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "ESPMenu"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 200, 0, 250)
+frame.Position = UDim2.new(0, 20, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, #frame:GetChildren() * 35)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createButton("Toggle ESP", function() espEnabled = not espEnabled end)
+createButton("Toggle Rainbow ESP", function() rainbowESP = not rainbowESP end)
+createButton("Line Origin: Top", function() lineOrigin = "Top" end)
+createButton("Line Origin: Middle", function() lineOrigin = "Middle" end)
+createButton("Line Origin: Bottom", function() lineOrigin = "Bottom" end)
+
+
+-- GUI MANAGEMENT
+local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "ESPMenu"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 200, 0, 250)
+frame.Position = UDim2.new(0, 20, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+
+local function createButton(text, callback)
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(1, -20, 0, 30)
+    btn.Position = UDim2.new(0, 10, 0, #frame:GetChildren() * 35)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Text = text
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 16
+    btn.MouseButton1Click:Connect(callback)
+end
+
+createButton("Toggle ESP", function() espEnabled = not espEnabled end)
+createButton("Toggle Rainbow ESP", function() rainbowESP = not rainbowESP end)
+createButton("Line Origin: Top", function() lineOrigin = "Top" end)
+createButton("Line Origin: Middle", function() lineOrigin = "Middle" end)
+createButton("Line Origin: Bottom", function() lineOrigin = "Bottom" end)
+
+-- Toggle menu visibility with M
+UIS.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == Enum.KeyCode.M then
+        frame.Visible = not frame.Visible
+    end
+end)
+
+-- FLYING
+function setFly(active)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if active then
+        local bodyGyro = Instance.new("BodyGyro", char.HumanoidRootPart)
+        bodyGyro.P = 9e4
+        bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        local bodyVelocity = Instance.new("BodyVelocity", char.HumanoidRootPart)
+        bodyVelocity.Velocity = Vector3.zero
+        bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    else
+        if bodyGyro then bodyGyro:Destroy() end
+        if bodyVelocity then bodyVelocity:Destroy() end
+    end
+end
+
+-- FOV CIRCLE
+local fovCircle = Drawing.new("Circle")
+fovCircle.Radius = fovRadius
+fovCircle.Filled = false
+fovCircle.Thickness = 1
+fovCircle.Transparency = 1
+
+RunService.RenderStepped:Connect(function()
+    local hue = tick() % 5 / 5
+    fovCircle.Color = Color3.fromHSV(hue, 1, 1)
+    fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    fovCircle.Visible = true
+end)
+
+-- AIMBOT
+local function lockAimbot()
+    local mouseLocation = UIS:GetMouseLocation()
+    local closestPlayer = nil
+    local closestDist = math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(aimbotBone) then
+            local hrp = player.Character[aimbotBone]
+            local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - mouseLocation).Magnitude
+            if onScreen and distance < fovRadius and distance < closestDist then
+                closestPlayer = player
+                closestDist = distance
+            end
+        end
+    end
+    if closestPlayer then
+        local targetPart = closestPlayer.Character[aimbotBone]
+        if targetPart then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position)
+        end
+    end
+end
+
+-- Aimbot update loop
+RunService.RenderStepped:Connect(function()
+    if aimbotEnabled then
+        lockAimbot()
+    end
+end)
+
+-- TOGGLE FLY
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F then
+        flying = not flying
+        setFly(flying)
+    end
+end)
+
+-- SPAWN OBJECT
+createButton("Spawn Object", function()
+    local part = Instance.new("Part", workspace)
+    part.Size = Vector3.new(10, 10, 10)
+    part.Anchored = true
+    part.Position = LocalPlayer.Character.Head.Position + Vector3.new(0, 5, 0)
+end)
+
+-- TELEPORT TO MOUSE
+createButton("Teleport to Mouse", function()
+    local mouse = LocalPlayer:GetMouse()
+    if mouse and LocalPlayer.Character then
+        LocalPlayer.Character:MoveTo(mouse.Hit.Position)
+    end
+end)
+
+-- TELEPORT TO PLAYER
+createButton("Teleport to Player", function()
+    local target = nil
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            target = player.Character.HumanoidRootPart.Position
+            break
+        end
+    end
+    if target then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(target)
+    end
+end)
