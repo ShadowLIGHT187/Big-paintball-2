@@ -1,97 +1,124 @@
--- // SERVICES
+-- // LOADER GUI
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- // SETTINGS
-local espEnabled = true
-local rainbowESP = false
-local aimbotEnabled = true
-local fovRadius = 120
-local lineOrigin = "Middle"
-local aimbotBone = "Head"
-local massKillEnabled = false
+local loaderGUI = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+loaderGUI.Name = "LoaderUI"
+loaderGUI.IgnoreGuiInset = true
+loaderGUI.ResetOnSpawn = false
 
--- // ESP TRACKER
-local espObjects = {}
-local function getLineOrigin()
-    local vs = Camera.ViewportSize
-    if lineOrigin == "Top" then return Vector2.new(vs.X / 2, 0)
-    elseif lineOrigin == "Middle" then return Vector2.new(vs.X / 2, vs.Y / 2)
-    else return Vector2.new(vs.X / 2, vs.Y) end
-end
+local frame = Instance.new("Frame", loaderGUI)
+frame.Size = UDim2.new(0, 200, 0, 100)
+frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
 
-local function clearESP(player)
-    if espObjects[player] then
-        for _, v in pairs(espObjects[player]) do pcall(function() v:Remove() end) end
-        espObjects[player] = nil
+local label = Instance.new("TextLabel", frame)
+label.Size = UDim2.new(1, 0, 0.6, 0)
+label.Position = UDim2.new(0, 0, 0, 5)
+label.BackgroundTransparency = 1
+label.Text = "Big Paintball 2 Pro"
+label.TextColor3 = Color3.new(1, 1, 1)
+label.Font = Enum.Font.GothamBold
+label.TextSize = 18
+
+local loadButton = Instance.new("TextButton", frame)
+loadButton.Size = UDim2.new(0.8, 0, 0.3, 0)
+loadButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+loadButton.BackgroundColor3 = Color3.fromRGB(60, 0, 60)
+loadButton.Text = "Load Script"
+loadButton.TextColor3 = Color3.new(1, 1, 1)
+loadButton.Font = Enum.Font.GothamBold
+loadButton.TextSize = 14
+
+loadButton.MouseButton1Click:Connect(function()
+    loaderGUI:Destroy()
+
+    -- // SERVICES
+    local Players = game:GetService("Players")
+    local UIS = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+
+    -- // SETTINGS
+    local espEnabled = true
+    local rainbowESP = false
+    local aimbotEnabled = true
+    local fovRadius = 120
+    local lineOrigin = "Middle"
+    local aimbotBone = "Head"
+
+    -- // ESP TRACKER
+    local espObjects = {}
+    local function getLineOrigin()
+        local vs = Camera.ViewportSize
+        if lineOrigin == "Top" then return Vector2.new(vs.X / 2, 0)
+        elseif lineOrigin == "Middle" then return Vector2.new(vs.X / 2, vs.Y / 2)
+        else return Vector2.new(vs.X / 2, vs.Y) end
     end
-end
 
-local function createESP(player)
-    if player == LocalPlayer or espObjects[player] then return end
+    local function clearESP(player)
+        if espObjects[player] then
+            for _, v in pairs(espObjects[player]) do pcall(function() v:Remove() end) end
+            espObjects[player] = nil
+        end
+    end
 
-    local box = Drawing.new("Square")
-    box.Visible = false box.Thickness = 1 box.Filled = false
+    local function createESP(player)
+        if player == LocalPlayer or espObjects[player] then return end
 
-    local name = Drawing.new("Text")
-    name.Size = 13 name.Center = true name.Outline = true name.Visible = false
+        local box = Drawing.new("Square") box.Visible = false box.Thickness = 1 box.Filled = false
+        local name = Drawing.new("Text") name.Size = 13 name.Center = true name.Outline = true name.Visible = false
+        local line = Drawing.new("Line") line.Thickness = 1 line.Visible = false
 
-    local line = Drawing.new("Line")
-    line.Thickness = 1 line.Visible = false
+        espObjects[player] = {Box = box, Name = name, Line = line}
 
-    espObjects[player] = {Box = box, Name = name, Line = line}
+        RunService.RenderStepped:Connect(function()
+            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not espEnabled then
+                box.Visible, name.Visible, line.Visible = false, false, false return
+            end
 
+            local hrp = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+            if not onScreen then
+                box.Visible, name.Visible, line.Visible = false, false, false return
+            end
+
+            local size = Vector2.new(60, 100)
+            box.Size = size
+            box.Position = Vector2.new(pos.X - size.X/2, pos.Y - size.Y/2)
+            name.Position = Vector2.new(pos.X, pos.Y - size.Y/2 - 14)
+            name.Text = player.Name
+            line.From = getLineOrigin()
+            line.To = Vector2.new(pos.X, pos.Y)
+
+            local color = rainbowESP and Color3.fromHSV(tick()%5/5,1,1) or Color3.new(1, 0, 0)
+            box.Color = color
+            name.Color = Color3.new(1, 1, 1)
+            line.Color = Color3.new(0, 1, 0)
+
+            box.Visible = true
+            name.Visible = true
+            line.Visible = true
+        end)
+    end
+
+    for _, plr in ipairs(Players:GetPlayers()) do createESP(plr) end
+    Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function() task.wait(1) createESP(p) end) end)
+    Players.PlayerRemoving:Connect(clearESP)
+
+    -- // FOV CIRCLE
+    local fovCircle = Drawing.new("Circle")
+    fovCircle.Radius = fovRadius
+    fovCircle.Filled = false
+    fovCircle.Thickness = 1
+    fovCircle.Transparency = 1
+    fovCircle.Visible = true
     RunService.RenderStepped:Connect(function()
-        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") or not espEnabled then
-            box.Visible, name.Visible, line.Visible = false, false, false
-            return
-        end
-
-        local hrp = player.Character.HumanoidRootPart
-        local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-        if not onScreen then
-            box.Visible, name.Visible, line.Visible = false, false, false
-            return
-        end
-
-        local size = Vector2.new(60, 100)
-        box.Size = size
-        box.Position = Vector2.new(pos.X - size.X/2, pos.Y - size.Y/2)
-        name.Position = Vector2.new(pos.X, pos.Y - size.Y/2 - 14)
-        name.Text = player.Name
-        line.From = getLineOrigin()
-        line.To = Vector2.new(pos.X, pos.Y)
-
-        local color = rainbowESP and Color3.fromHSV(tick()%5/5,1,1) or Color3.new(1, 0, 0)
-        box.Color = color
-        name.Color = Color3.new(1, 1, 1)
-        line.Color = Color3.new(0, 1, 0)
-
-        box.Visible = true
-        name.Visible = true
-        line.Visible = true
+        fovCircle.Color = Color3.fromHSV(tick()%5/5, 1, 1)
+        fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     end)
-end
-
-for _, plr in ipairs(Players:GetPlayers()) do createESP(plr) end
-Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function() task.wait(1) createESP(p) end) end)
-Players.PlayerRemoving:Connect(clearESP)
-
--- // FOV CIRCLE
-local fovCircle = Drawing.new("Circle")
-fovCircle.Radius = fovRadius
-fovCircle.Filled = false
-fovCircle.Thickness = 1
-fovCircle.Transparency = 1
-fovCircle.Visible = true
-RunService.RenderStepped:Connect(function()
-    fovCircle.Color = Color3.fromHSV(tick()%5/5, 1, 1)
-    fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-end)
-
 -- // UPDATED AIMBOT
 local function getClosestTarget()
     local mousePos = UIS:GetMouseLocation()
@@ -128,83 +155,117 @@ end)
 RunService.RenderStepped:Connect(function()
     if aimbotEnabled then lockAimbot() end
 end)
-
--- // MASS KILL
-local function massKill()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer and plr.Team ~= LocalPlayer.Team and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local root = plr.Character.HumanoidRootPart
-            local front = Camera.CFrame.Position + Camera.CFrame.LookVector * 5
-            root.CFrame = CFrame.new(front + Vector3.new(0, 2, 0))
+     -- // MASS KILL
+    local function massKill()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Team ~= LocalPlayer.Team and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local root = plr.Character.HumanoidRootPart
+                local front = Camera.CFrame.Position + Camera.CFrame.LookVector * 5
+                root.CFrame = CFrame.new(front + Vector3.new(0, 2, 0))
+            end
         end
     end
-end
 
--- // GUI
-local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-gui.Name = "ProPaintballUI"
-gui.ResetOnSpawn = false
+    -- // GUI SETUP
+    local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+    gui.Name = "ProPaintballUI"
+    gui.ResetOnSpawn = false
 
-local menu = Instance.new("Frame", gui)
-menu.Size = UDim2.new(0, 220, 0, 320)
-menu.Position = UDim2.new(0, 20, 0, 100)
-menu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-menu.BorderSizePixel = 0
-menu.Active = true
-menu.Draggable = true
+    local menu = Instance.new("Frame", gui)
+    menu.Size = UDim2.new(0, 260, 0, 360)
+    menu.Position = UDim2.new(0, 20, 0, 100)
+    menu.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    menu.BorderSizePixel = 0
+    menu.Active = true
+    menu.Draggable = true
 
-local title = Instance.new("TextLabel", menu)
-title.Size = UDim2.new(1, 0, 0, 30)
-title.Text = "Big Paintball 2 Pro Menu"
-title.BackgroundColor3 = Color3.fromRGB(60, 0, 60)
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 16
+    local title = Instance.new("TextLabel", menu)
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Text = "Big Paintball 2 Pro Menu"
+    title.BackgroundColor3 = Color3.fromRGB(60, 0, 60)
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
 
-local yOffset = 40
-local function createToggle(text, var, callback)
-    local btn = Instance.new("TextButton", menu)
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, yOffset)
-    yOffset += 35
-    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
-    btn.Text = text .. ": ON"
+    -- Tabs
+    local tabs = {Main = {}, Rage = {}}
+    local currentTab = "Main"
 
-    btn.MouseButton1Click:Connect(function()
-        _G[var] = not _G[var]
-        btn.Text = text .. ": " .. (_G[var] and "ON" or "OFF")
-        callback(_G[var])
-    end)
-end
-
-local function createButton(text, callback)
-    local btn = Instance.new("TextButton", menu)
-    btn.Size = UDim2.new(1, -20, 0, 30)
-    btn.Position = UDim2.new(0, 10, 0, yOffset)
-    yOffset += 35
-    btn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
-    btn.Text = text
-    btn.MouseButton1Click:Connect(callback)
-end
-
-createToggle("ESP", "espEnabled", function(val) espEnabled = val end)
-createToggle("Rainbow ESP", "rainbowESP", function(val) rainbowESP = val end)
-createToggle("Aimbot", "aimbotEnabled", function(val) aimbotEnabled = val end)
-createButton("Line Origin: Top", function() lineOrigin = "Top" end)
-createButton("Line Origin: Middle", function() lineOrigin = "Middle" end)
-createButton("Line Origin: Bottom", function() lineOrigin = "Bottom" end)
-createButton("Mass Kill (TP Enemies)", massKill)
-
--- // MENU TOGGLE
-UIS.InputBegan:Connect(function(input, gp)
-    if not gp and input.KeyCode == Enum.KeyCode.M then
-        menu.Visible = not menu.Visible
+    local function createTabButton(name, xpos)
+        local tabBtn = Instance.new("TextButton", menu)
+        tabBtn.Size = UDim2.new(0, 120, 0, 30)
+        tabBtn.Position = UDim2.new(0, xpos, 0, 35)
+        tabBtn.Text = name
+        tabBtn.BackgroundColor3 = Color3.fromRGB(50, 0, 50)
+        tabBtn.TextColor3 = Color3.new(1, 1, 1)
+        tabBtn.Font = Enum.Font.GothamBold
+        tabBtn.TextSize = 14
+        tabBtn.MouseButton1Click:Connect(function()
+            for tabName, buttons in pairs(tabs) do
+                for _, btn in pairs(buttons) do
+                    btn.Visible = (tabName == name)
+                end
+            end
+            currentTab = name
+        end)
     end
+
+    createTabButton("Main", 10)
+    createTabButton("Rage", 130)
+
+    local yOffsets = {Main = 70, Rage = 70}
+
+    local function createToggle(tab, text, var, callback)
+        local btn = Instance.new("TextButton", menu)
+        btn.Size = UDim2.new(1, -20, 0, 30)
+        btn.Position = UDim2.new(0, 10, 0, yOffsets[tab])
+        yOffsets[tab] += 35
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 14
+        btn.Text = text .. ": ON"
+
+        btn.MouseButton1Click:Connect(function()
+            _G[var] = not _G[var]
+            callback(_G[var])
+            btn.Text = text .. ": " .. (_G[var] and "ON" or "OFF")
+        end)
+
+        btn.Visible = (tab == currentTab)
+        table.insert(tabs[tab], btn)
+    end
+
+    local function createButton(tab, text, callback)
+        local btn = Instance.new("TextButton", menu)
+        btn.Size = UDim2.new(1, -20, 0, 30)
+        btn.Position = UDim2.new(0, 10, 0, yOffsets[tab])
+        yOffsets[tab] += 35
+        btn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.SourceSansBold
+        btn.TextSize = 14
+        btn.Text = text
+        btn.MouseButton1Click:Connect(callback)
+        btn.Visible = (tab == currentTab)
+        table.insert(tabs[tab], btn)
+    end
+
+    -- Main Tab Features
+    createToggle("Main", "ESP", "espEnabled", function(val) espEnabled = val end)
+    createToggle("Main", "Rainbow ESP", "rainbowESP", function(val) rainbowESP = val end)
+    createButton("Main", "Line Origin: Top", function() lineOrigin = "Top" end)
+    createButton("Main", "Line Origin: Middle", function() lineOrigin = "Middle" end)
+    createButton("Main", "Line Origin: Bottom", function() lineOrigin = "Bottom" end)
+
+    -- Rage Tab Features
+    createToggle("Rage", "Aimbot", "aimbotEnabled", function(val) aimbotEnabled = val end)
+    createButton("Rage", "Mass Kill (TP Enemies)", massKill)
+
+    -- // MENU TOGGLE
+    UIS.InputBegan:Connect(function(input, gp)
+        if not gp and input.KeyCode == Enum.KeyCode.M then
+            menu.Visible = not menu.Visible
+        end
+    end)
 end)
-    
